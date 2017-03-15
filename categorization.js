@@ -1,6 +1,6 @@
 var mysql = require('mysql');
 var hasher = require('./hasher');
-var hasher = require('./config');
+var config = require('./config');
 
 var connection = mysql.createConnection({
   host: config.db.host,
