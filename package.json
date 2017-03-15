@@ -1,0 +1,16 @@
+{
+  "name": "expenses-manager-server",
+  "version": "0.1.0",
+  "description": "Server side of the expenses-manager-app application. It is used to categorized transactions received from client.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jaroslav Ševčík",
+  "dependencies": {
+    "body-parser": "^1.16.0",
+    "express": "^4.14.1",
+    "mysql": "^2.13.0",
+    "scrypt": "^6.0.3"
+  }
+}
