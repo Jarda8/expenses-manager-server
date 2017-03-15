@@ -1,12 +1,13 @@
 var mysql = require('mysql');
 var hasher = require('./hasher');
+var hasher = require('./config');
 
 var connection = mysql.createConnection({
-  host: 'localhost',
-  port: 3306,
-  user: 'expenses-manager',
-  password: 'Expmngapp9/9',
-  database: 'expenses_manager_db'
+  host: config.db.host,
+  port: config.db.port,
+  user: config.db.user,
+  password: config.db.password,
+  database: config.db.database
 });
 
 connection.connect(err => {
