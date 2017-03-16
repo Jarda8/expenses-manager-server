@@ -136,10 +136,10 @@ function insertCategoryIfNecessary(categoryName, amount, connection, callback) {
         categoryType = 'INCOME'
       }
       insertCategory(categoryName, categoryType, connection, callback);
-    }
-    if (callback) {
+    } else if (callback) {
       callback();
     }
+
   });
 }
 
