@@ -4,13 +4,22 @@
   "description": "Server side of the expenses-manager-app application. It is used to categorized transactions received from client.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
   },
   "author": "Jaroslav Ševčík",
+  "engines": {
+    "node": "6.9.5"
+  },
   "dependencies": {
     "body-parser": "^1.16.0",
     "express": "^4.14.1",
     "mysql": "^2.13.0",
     "scrypt": "^6.0.3"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jarda8/expenses-manager-server"
+  },
+  "license": "MIT"
 }

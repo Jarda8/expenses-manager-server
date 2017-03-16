@@ -1,39 +1,48 @@
 var mysql = require('mysql');
 var hasher = require('./hasher');
-var config = require('./config');
+// var config = require('./config');
 
-var connection = mysql.createConnection({
-  host: config.db.host,
-  port: config.db.port,
-  user: config.db.user,
-  password: config.db.password,
-  database: config.db.database
+// var connection = mysql.createConnection({
+//   host: process.env.HOST || 'localhost',
+//   port: process.env.PORT || '3306',
+//   user: process.env.USER || 'expenses-manager',
+//   password: process.env.PASSWORD || 'Expmngapp9/9',
+//   database: process.env.DATABASE || 'expenses_manager_db'
+// });
+
+var pool  = mysql.createPool({
+  host: process.env.HOST || 'localhost',
+  port: process.env.DB_PORT || '3306',
+  user: process.env.USER || 'expenses-manager',
+  password: process.env.PASSWORD || 'Expmngapp9/9',
+  database: process.env.DATABASE || 'expenses_manager_db'
 });
 
-connection.connect(err => {
-  if (err) {
-    console.error('error connecting to db: ' + err.stack);
-    return;
-  }
-  console.log('connected to db as id ' + connection.threadId);
-});
+// connection.connect(err => {
+//   if (err) {
+//     console.error('error connecting to db: ' + err.stack);
+//     return;
+//   }
+//   console.log('connected to db as id ' + connection.threadId);
+// });
 
 exports.categorizeTransactions = (transactions, callback) => {
 
   // let categoriesOfTransactions = transactions.map(categorizeTransaction);
   let categoriesOfTransactions = [];
   let cnt = {cnt: transactions.length};
-  for (var i = 0; i < transactions.length; i++) {
-    categoriesOfTransactions.push('');
-    categorizeTransaction(transactions[i], i, cnt, categoriesOfTransactions, callback);
-  }
-
-
-  // connection.end();
-  // return categoriesOfTransactions;
+  pool.getConnection((err, connection) => {
+    for (var i = 0; i < transactions.length; i++) {
+      categoriesOfTransactions.push('');
+      categorizeTransaction(transactions[i], i, cnt, categoriesOfTransactions, connection, (categories) => {
+        connection.release();
+        callback(categories);
+      });
+    }
+  });
 }
 
-function categorizeTransaction(transaction, position, cnt, categoriesOfTransactions, callback) {
+function categorizeTransaction(transaction, position, cnt, categoriesOfTransactions, connection, callback) {
   let infoToHash = transaction.accountParty.iban + transaction.accountParty.bic + transaction.accountParty.info;
   console.log('infoToHash: ' + infoToHash);
   let accountID = hasher.hashAccountInfo(infoToHash);
@@ -72,25 +81,26 @@ exports.addCategorization = (categorizedTransaction) => {
   let accountID = hasher.hashAccountInfo(infoToHash);
   console.log(accountID.toString());
 
-  getAccountPartyCategories(accountID, (accountPartyCategories) => {
-    if (accountPartyCategories.length === 0) {
-      insertAccountParty(accountID, () => {
-        insertCategoryIfNecessary(categorizedTransaction.category, categorizedTransaction.amount, () => {
-          insertAccountPartyCategory(accountID, categorizedTransaction.category);
+  pool.getConnection((err, connection) => {
+    getAccountPartyCategories(accountID, connection, (accountPartyCategories) => {
+      if (accountPartyCategories.length === 0) {
+        insertAccountParty(accountID, connection, () => {
+          insertCategoryIfNecessary(categorizedTransaction.category, categorizedTransaction.amount, connection, () => {
+            insertAccountPartyCategory(accountID, categorizedTransaction.category, connection, connection.release);
+          });
         });
-      });
-    } else {
-      if (accountPartyCategories.find((accountPartyCategory) => accountPartyCategory.category_name === categorizedTransaction.category)) {
-        increaseCategoryWeight(accountID, categorizedTransaction.category);
       } else {
-        insertAccountPartyCategory(accountID, categorizedTransaction.category);
+        if (accountPartyCategories.find((accountPartyCategory) => accountPartyCategory.category_name === categorizedTransaction.category)) {
+          increaseCategoryWeight(accountID, categorizedTransaction.category, connection, connection.release);
+        } else {
+          insertAccountPartyCategory(accountID, categorizedTransaction.category, connection, connection.release);
+        }
       }
-    }
+    });
   });
-
 }
 
-function getAccountPartyCategories(accountID, callback) {
+function getAccountPartyCategories(accountID, connection, callback) {
   let getAccountPartyCategoriesSQL =
   'SELECT * ' +
   'FROM account_party_category ' +
@@ -102,7 +112,7 @@ function getAccountPartyCategories(accountID, callback) {
   });
 }
 
-function getCategory(categoryName, callback) {
+function getCategory(categoryName, connection, callback) {
   let getCategorySQL =
   'SELECT * ' +
   'FROM category ' +
@@ -118,14 +128,14 @@ function getCategory(categoryName, callback) {
   });
 }
 
-function insertCategoryIfNecessary(categoryName, amount, callback) {
-  getCategory(categoryName, (category) => {
+function insertCategoryIfNecessary(categoryName, amount, connection, callback) {
+  getCategory(categoryName, connection, (category) => {
     if (category === null) {
       let categoryType = 'EXPENSE';
       if (amount > 0) {
         categoryType = 'INCOME'
       }
-      insertCategory(categoryName, categoryType, callback);
+      insertCategory(categoryName, categoryType, connection, callback);
     }
     if (callback) {
       callback();
@@ -133,7 +143,7 @@ function insertCategoryIfNecessary(categoryName, amount, callback) {
   });
 }
 
-function insertCategory(categoryName, categoryType, callback) {
+function insertCategory(categoryName, categoryType, connection, callback) {
   let insertCategorySQL =
   'INSERT INTO category (category_name, category_type) ' +
   'VALUES (?, ?)';
@@ -146,7 +156,7 @@ function insertCategory(categoryName, categoryType, callback) {
   });
 }
 
-function insertAccountParty(accountID, callback) {
+function insertAccountParty(accountID, connection, callback) {
   let insertAccountPartySQL =
   'INSERT INTO account_party (account_id) ' +
   'VALUES (?)';
@@ -159,7 +169,7 @@ function insertAccountParty(accountID, callback) {
   });
 }
 
-function insertAccountPartyCategory(accountID, categoryName, callback) {
+function insertAccountPartyCategory(accountID, categoryName, connection, callback) {
   let insertAccountPartyCategorySQL =
   'INSERT INTO account_party_category (account_id, category_name, weight) ' +
   'VALUES (?, ?, 1)';
@@ -172,7 +182,7 @@ function insertAccountPartyCategory(accountID, categoryName, callback) {
   });
 }
 
-function increaseCategoryWeight(accountID, categoryName, callback) {
+function increaseCategoryWeight(accountID, categoryName, connection, callback) {
   let increaseCategoryWeightSQL =
   'UPDATE account_party_category ' +
   'SET weight = weight + 1 ' +
