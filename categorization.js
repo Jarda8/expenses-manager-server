@@ -1,14 +1,5 @@
 var mysql = require('mysql');
 var hasher = require('./hasher');
-// var config = require('./config');
-
-// var connection = mysql.createConnection({
-//   host: process.env.HOST || 'localhost',
-//   port: process.env.PORT || '3306',
-//   user: process.env.USER || 'expenses-manager',
-//   password: process.env.PASSWORD || 'Expmngapp9/9',
-//   database: process.env.DATABASE || 'expenses_manager_db'
-// });
 
 var pool  = mysql.createPool({
   host: process.env.HOST || 'localhost',
@@ -18,17 +9,7 @@ var pool  = mysql.createPool({
   database: process.env.DATABASE || 'expenses_manager_db'
 });
 
-// connection.connect(err => {
-//   if (err) {
-//     console.error('error connecting to db: ' + err.stack);
-//     return;
-//   }
-//   console.log('connected to db as id ' + connection.threadId);
-// });
-
 exports.categorizeTransactions = (transactions, callback) => {
-
-  // let categoriesOfTransactions = transactions.map(categorizeTransaction);
   let categoriesOfTransactions = [];
   let cnt = {cnt: transactions.length};
   pool.getConnection((err, connection) => {
@@ -44,9 +25,7 @@ exports.categorizeTransactions = (transactions, callback) => {
 
 function categorizeTransaction(transaction, position, cnt, categoriesOfTransactions, connection, callback) {
   let infoToHash = transaction.accountParty.iban + transaction.accountParty.bic + transaction.accountParty.info;
-  console.log('infoToHash: ' + infoToHash);
   let accountID = hasher.hashAccountInfo(infoToHash);
-  // console.log('accountID v categorizeTransaction: ' + accountID.toString("hex"));
 
   let sql =
   'SELECT category_name ' +
@@ -60,14 +39,11 @@ function categorizeTransaction(transaction, position, cnt, categoriesOfTransacti
     if (rows.length === 0) {
       if (transaction.amount > 0) {
         categoriesOfTransactions[position] = 'OTHERS_INCOME';
-        // callback('OTHERS_INCOME');
       } else {
         categoriesOfTransactions[position] = 'OTHERS_EXPENSE';
-        // callback('OTHERS_EXPENSE');
       }
     } else {
       categoriesOfTransactions[position] = rows[0].category_name;
-      // callback(rows[0].category_name);
     }
     if (--cnt.cnt === 0) {
       callback(categoriesOfTransactions);
@@ -79,7 +55,6 @@ function categorizeTransaction(transaction, position, cnt, categoriesOfTransacti
 exports.addCategorization = (categorizedTransaction) => {
   let infoToHash = categorizedTransaction.accountParty.iban + categorizedTransaction.accountParty.bic + categorizedTransaction.accountParty.info;
   let accountID = hasher.hashAccountInfo(infoToHash);
-  console.log(accountID.toString());
 
   pool.getConnection((err, connection) => {
     getAccountPartyCategories(accountID, connection, (accountPartyCategories) => {

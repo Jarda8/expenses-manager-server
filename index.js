@@ -9,15 +9,12 @@ var jsonParser = bodyParser.json();
 app.set('port', (process.env.PORT || 8081));
 
 app.post('/', jsonParser, function (req, res) {
-  console.log(req.body);
-  // let response = {hello: 'Hello World!'};
   categorization.categorizeTransactions(req.body, (categories) => {
     res.send(JSON.stringify(categories));
   });
 })
 
 app.post('/new-categorized-transaction', jsonParser, function (req, res) {
-  console.log(req.body);
   categorization.addCategorization(req.body);
   res.send({status: 'OK'});
 })
